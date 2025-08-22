@@ -36,6 +36,12 @@ validate_support_username() {
 
 # Function to install the bot
 install_bot() {
+  # Check if bot is already installed
+  if [ -d "/root/bot" ] || [ -f "/etc/systemd/system/telegram-bot.service" ]; then
+    echo "Bot is already installed. Please uninstall first if you want to reinstall."
+    exit 1
+  fi
+
   # Update package list
   echo "Updating package list..."
   apt update -y
@@ -132,15 +138,31 @@ EOF
   echo "Setting up 'bot' command..."
   cp "$0" /usr/local/bin/bot
   chmod +x /usr/local/bin/bot
+
+  # Check if /usr/local/bin is in PATH
+  if ! echo $PATH | grep -q "/usr/local/bin"; then
+    echo "Adding /usr/local/bin to PATH..."
+    echo "export PATH=\$PATH:/usr/local/bin" >> /root/.bashrc
+    export PATH=$PATH:/usr/local/bin
+  fi
+
+  echo "You can now use the 'bot' command to manage the bot."
 }
 
 # Function to uninstall the bot
 uninstall_bot() {
+  # Check if bot is installed
+  if [ ! -d "/root/bot" ] && [ ! -f "/etc/systemd/system/telegram-bot.service" ]; then
+    echo "Bot is not installed."
+    exit 1
+  fi
+
   echo "Stopping and disabling systemd service..."
   systemctl stop telegram-bot 2>/dev/null
   systemctl disable telegram-bot 2>/dev/null
   rm -f /etc/systemd/system/telegram-bot.service
   systemctl daemon-reload
+  systemctl reset-failed
 
   echo "Removing bot files..."
   rm -rf /root/bot

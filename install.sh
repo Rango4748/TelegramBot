@@ -63,7 +63,6 @@ install_bot() {
   # Download bot code
   echo "Downloading bot.py..."
   curl -Ls https://raw.githubusercontent.com/Rango4748/TelegramBot/main/bot.py -o /root/bot/bot.py
-
   # Check if download was successful
   if [ ! -f /root/bot/bot.py ]; then
     echo "Failed to download bot.py. Please check the GitHub repository URL."

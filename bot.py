@@ -275,6 +275,7 @@ def get_main_keyboard(user_id):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
+    logger.info(f"User ID: {user_id}, ADMIN_ID: {ADMIN_ID}, Is Admin: {user_id == ADMIN_ID}")  # خط دیباگ
     await update.message.reply_text(
         "سلام! از دکمه‌های زیر استفاده کنید:",
         reply_markup=get_main_keyboard(user_id)

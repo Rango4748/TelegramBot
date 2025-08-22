@@ -6,6 +6,11 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
+# Predefined configuration values (replace these with your actual values)
+BOT_TOKEN="YOUR_BOT_TOKEN"  # Replace with your Telegram Bot Token
+ADMIN_ID="YOUR_ADMIN_ID"    # Replace with your Telegram Admin ID (a number, e.g., 123456789)
+SUPPORT_USERNAME="@YourSupportUsername"  # Replace with your Telegram support username (e.g., @SupportID)
+
 # Function to validate inputs
 validate_bot_token() {
   local token=$1
@@ -33,6 +38,34 @@ validate_support_username() {
     return 1
   fi
 }
+
+# Check configuration values
+if [ -z "$BOT_TOKEN" ] || ! validate_bot_token "$BOT_TOKEN"; then
+  echo "Error: BOT_TOKEN is empty or invalid. Please set a valid Bot Token in the script."
+  exit 1
+fi
+
+if [ -z "$ADMIN_ID" ] || ! validate_admin_id "$ADMIN_ID"; then
+  echo "Error: ADMIN_ID is empty or invalid. Please set a valid Admin ID (a number) in the script."
+  exit 1
+fi
+
+if [ -z "$SUPPORT_USERNAME" ] || ! validate_support_username "$SUPPORT_USERNAME"; then
+  echo "Error: SUPPORT_USERNAME is empty or invalid. Please set a valid username (e.g., @SupportID) in the script."
+  exit 1
+fi
+
+# Check disk space
+echo "Checking disk space..."
+if ! df -h / | grep -q "Avail"; then
+  echo "Error: Unable to check disk space. Please check your system."
+  exit 1
+fi
+AVAILABLE_SPACE=$(df / | tail -1 | awk '{print $4}')
+if [ "$AVAILABLE_SPACE" -lt 10000 ]; then  # Less than 10MB available
+  echo "Error: Insufficient disk space. Please free up space and try again."
+  exit 1
+fi
 
 # Function to install the bot
 install_bot() {
@@ -63,39 +96,12 @@ install_bot() {
   # Download bot code
   echo "Downloading bot.py..."
   curl -Ls https://raw.githubusercontent.com/Rango4748/TelegramBot/main/bot.py -o /root/bot/bot.py
+
   # Check if download was successful
   if [ ! -f /root/bot/bot.py ]; then
     echo "Failed to download bot.py. Please check the GitHub repository URL."
     exit 1
   fi
-
-  # Prompt for user inputs with validation
-  while true; do
-    read -p "Bot Token: " BOT_TOKEN
-    if validate_bot_token "$BOT_TOKEN"; then
-      break
-    else
-      echo "Invalid Bot Token format. It should look like '123456:ABC-DEF1234ghIkl-xyz'. Try again."
-    fi
-  done
-
-  while true; do
-    read -p "Admin ID: " ADMIN_ID
-    if validate_admin_id "$ADMIN_ID"; then
-      break
-    else
-      echo "Invalid Admin ID. It should be a number (e.g., 123456789). Try again."
-    fi
-  done
-
-  while true; do
-    read -p "Support Telegram Username (e.g., @SupportID): " SUPPORT_USERNAME
-    if validate_support_username "$SUPPORT_USERNAME"; then
-      break
-    else
-      echo "Invalid Support Username. It should start with '@' (e.g., @SupportID). Try again."
-    fi
-  done
 
   # Replace placeholders in bot.py
   echo "Configuring bot..."
@@ -137,10 +143,11 @@ EOF
   echo "Setting up 'bot' command..."
   cp "$0" /usr/local/bin/bot
   chmod +x /usr/local/bin/bot
-  if [ -f /usr/local/bin/bot ]; then
+  if [ -f /usr/local/bin/bot ] && [ -s /usr/local/bin/bot ]; then
     echo "Successfully created /usr/local/bin/bot"
+    ls -l /usr/local/bin/bot
   else
-    echo "Failed to create /usr/local/bin/bot"
+    echo "Failed to create /usr/local/bin/bot or file is empty"
     exit 1
   fi
 

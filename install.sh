@@ -26,7 +26,7 @@ mkdir -p /root/bot
 
 # Download bot code
 echo "Downloading bot.py..."
-curl -Ls https://raw.githubusercontent.com/YourUsername/TelegramBot/main/bot.py -o /root/bot/bot.py
+curl -Ls https://raw.githubusercontent.com/Rango4748/TelegramBot/main/bot.py -o /root/bot/bot.py
 
 # Check if download was successful
 if [ ! -f /root/bot/bot.py ]; then

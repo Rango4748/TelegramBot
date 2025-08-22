@@ -138,12 +138,19 @@ EOF
   echo "Setting up 'bot' command..."
   cp "$0" /usr/local/bin/bot
   chmod +x /usr/local/bin/bot
+  if [ -f /usr/local/bin/bot ]; then
+    echo "Successfully created /usr/local/bin/bot"
+  else
+    echo "Failed to create /usr/local/bin/bot"
+    exit 1
+  fi
 
   # Check if /usr/local/bin is in PATH
   if ! echo $PATH | grep -q "/usr/local/bin"; then
     echo "Adding /usr/local/bin to PATH..."
     echo "export PATH=\$PATH:/usr/local/bin" >> /root/.bashrc
     export PATH=$PATH:/usr/local/bin
+    echo "Added /usr/local/bin to PATH. Run 'source /root/.bashrc' or restart your shell."
   fi
 
   echo "You can now use the 'bot' command to manage the bot."

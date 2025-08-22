@@ -6,54 +6,174 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-# Update package list
-echo "Updating package list..."
-apt update -y
+# Function to validate inputs
+validate_bot_token() {
+  local token=$1
+  if [[ $token =~ ^[0-9]+:[A-Za-z0-9_-]+$ ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
 
-# Install Python and pip if not installed
-if ! command -v python3 &> /dev/null; then
-  echo "Installing Python and pip..."
-  apt install python3 python3-pip -y
-fi
+validate_admin_id() {
+  local id=$1
+  if [[ $id =~ ^[0-9]+$ ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
 
-# Install required Python libraries
-echo "Installing Python libraries..."
-pip3 install python-telegram-bot jdatetime requests
+validate_support_username() {
+  local username=$1
+  if [[ $username =~ ^@.+$ ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
 
-# Create directory
-echo "Creating directory /root/bot..."
-mkdir -p /root/bot
+# Function to install the bot
+install_bot() {
+  # Update package list
+  echo "Updating package list..."
+  apt update -y
 
-# Download bot code
-echo "Downloading bot.py..."
-curl -Ls https://raw.githubusercontent.com/Rango4748/TelegramBot/main/bot.py -o /root/bot/bot.py
+  # Install Python and pip if not installed
+  if ! command -v python3 &> /dev/null; then
+    echo "Installing Python and pip..."
+    apt install python3 python3-pip -y
+  fi
 
-# Check if download was successful
-if [ ! -f /root/bot/bot.py ]; then
-  echo "Failed to download bot.py. Please check the GitHub repository URL."
-  exit 1
-fi
+  # Install required Python libraries
+  echo "Installing Python libraries..."
+  pip3 install python-telegram-bot jdatetime requests
 
-# Prompt for user inputs
-echo "Please provide the following details:"
-read -p "Bot Token: " BOT_TOKEN
-read -p "Admin ID: " ADMIN_ID
-read -p "Support Telegram Username (e.g., @SupportID): " SUPPORT_USERNAME
+  # Create directory
+  echo "Creating directory /root/bot..."
+  mkdir -p /root/bot
 
-# Replace placeholders in bot.py
-echo "Configuring bot..."
-sed -i "s/BOT_TOKEN = \"BOT_TOKEN_PLACEHOLDER\"/BOT_TOKEN = \"$BOT_TOKEN\"/g" /root/bot/bot.py
-sed -i "s/ADMIN_ID = ADMIN_ID_PLACEHOLDER/ADMIN_ID = $ADMIN_ID/g" /root/bot/bot.py
-sed -i "s/SUPPORT_USERNAME = \"SUPPORT_USERNAME_PLACEHOLDER\"/SUPPORT_USERNAME = \"$SUPPORT_USERNAME\"/g" /root/bot/bot.py
+  # Download bot code
+  echo "Downloading bot.py..."
+  curl -Ls https://raw.githubusercontent.com/Rango4748/TelegramBot/main/bot.py -o /root/bot/bot.py
 
-# Install screen if not installed
-if ! command -v screen &> /dev/null; then
-  echo "Installing screen..."
-  apt install screen -y
-fi
+  # Check if download was successful
+  if [ ! -f /root/bot/bot.py ]; then
+    echo "Failed to download bot.py. Please check the GitHub repository URL."
+    exit 1
+  fi
 
-# Run the bot in a detached screen session
-echo "Starting the bot in background..."
-screen -dmS bot python3 /root/bot/bot.py
+  # Prompt for user inputs with validation
+  while true; do
+    read -p "Bot Token: " BOT_TOKEN
+    if validate_bot_token "$BOT_TOKEN"; then
+      break
+    else
+      echo "Invalid Bot Token format. It should look like '123456:ABC-DEF1234ghIkl-xyz'. Try again."
+    fi
+  done
 
-echo "Bot installed and running in background. Use 'screen -r bot' to attach."
+  while true; do
+    read -p "Admin ID: " ADMIN_ID
+    if validate_admin_id "$ADMIN_ID"; then
+      break
+    else
+      echo "Invalid Admin ID. It should be a number (e.g., 123456789). Try again."
+    fi
+  done
+
+  while true; do
+    read -p "Support Telegram Username (e.g., @SupportID): " SUPPORT_USERNAME
+    if validate_support_username "$SUPPORT_USERNAME"; then
+      break
+    else
+      echo "Invalid Support Username. It should start with '@' (e.g., @SupportID). Try again."
+    fi
+  done
+
+  # Replace placeholders in bot.py
+  echo "Configuring bot..."
+  sed -i "s/BOT_TOKEN = \"BOT_TOKEN_PLACEHOLDER\"/BOT_TOKEN = \"$BOT_TOKEN\"/g" /root/bot/bot.py
+  sed -i "s/ADMIN_ID = ADMIN_ID_PLACEHOLDER/ADMIN_ID = $ADMIN_ID/g" /root/bot/bot.py
+  sed -i "s/SUPPORT_USERNAME = \"SUPPORT_USERNAME_PLACEHOLDER\"/SUPPORT_USERNAME = \"$SUPPORT_USERNAME\"/g" /root/bot/bot.py
+
+  # Create systemd service
+  echo "Creating systemd service..."
+  cat << EOF > /etc/systemd/system/telegram-bot.service
+[Unit]
+Description=Telegram Bot Service
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /root/bot/bot.py
+WorkingDirectory=/root/bot
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  # Enable and start the service
+  systemctl daemon-reload
+  systemctl enable telegram-bot
+  systemctl start telegram-bot
+
+  # Check service status
+  if systemctl is-active --quiet telegram-bot; then
+    echo "Bot installed and running as a systemd service."
+  else
+    echo "Failed to start the bot. Check logs with 'journalctl -u telegram-bot'."
+    exit 1
+  fi
+
+  # Copy script to /usr/local/bin/bot
+  echo "Setting up 'bot' command..."
+  cp "$0" /usr/local/bin/bot
+  chmod +x /usr/local/bin/bot
+}
+
+# Function to uninstall the bot
+uninstall_bot() {
+  echo "Stopping and disabling systemd service..."
+  systemctl stop telegram-bot 2>/dev/null
+  systemctl disable telegram-bot 2>/dev/null
+  rm -f /etc/systemd/system/telegram-bot.service
+  systemctl daemon-reload
+
+  echo "Removing bot files..."
+  rm -rf /root/bot
+
+  echo "Removing 'bot' command..."
+  rm -f /usr/local/bin/bot
+
+  echo "Bot uninstalled successfully."
+}
+
+# Menu
+while true; do
+  echo "Telegram Bot Management"
+  echo "1. Install"
+  echo "2. Uninstall"
+  echo "0. Exit"
+  read -p "Select an option [0-2]: " choice
+
+  case $choice in
+    1)
+      install_bot
+      break
+      ;;
+    2)
+      uninstall_bot
+      break
+      ;;
+    0)
+      echo "Exiting..."
+      exit 0
+      ;;
+    *)
+      echo "Invalid option. Please select 0, 1, or 2."
+      ;;
+  esac
+done

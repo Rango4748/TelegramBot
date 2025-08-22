@@ -180,6 +180,9 @@ uninstall_bot() {
   echo "Bot uninstalled successfully."
 }
 
+# Debug: Print when script is run
+echo "Running bot management script..."
+
 # Menu
 while true; do
   echo "Telegram Bot Management"
